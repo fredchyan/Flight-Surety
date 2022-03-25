@@ -136,7 +136,17 @@ contract FlightSuretyApp {
         string memory flight,
         uint256 timestamp,
         uint8 statusCode
-    ) internal pure {}
+    ) internal {
+        if (
+            statusCode == STATUS_CODE_LATE_AIRLINE ||
+            statusCode == STATUS_CODE_LATE_WEATHER ||
+            statusCode == STATUS_CODE_LATE_TECHNICAL ||
+            statusCode == STATUS_CODE_LATE_OTHER
+        ) {
+            bytes32 flightKey = getFlightKey(airline, flight);
+            flightSuretyData.creditInsurees(flightKey);
+        }
+    }
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus(
@@ -267,7 +277,7 @@ contract FlightSuretyApp {
             oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES
         ) {
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);
-
+            oracleResponses[key].isOpen = false;
             // Handle flight status as appropriate
             processFlightStatus(airline, flight, timestamp, statusCode);
         }
@@ -321,6 +331,18 @@ contract FlightSuretyApp {
         );
 
         operational = mode;
+    }
+
+    function buyInsurance(address airline, string calldata flight)
+        external
+        payable
+    {
+        bytes32 key = getFlightKey(airline, flight);
+        flightSuretyData.buy{value: msg.value}(msg.sender, key);
+    }
+
+    function withdrawPaidout() external {
+        flightSuretyData.pay(msg.sender);
     }
 
     // endregion

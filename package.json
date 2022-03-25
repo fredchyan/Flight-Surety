@@ -9,7 +9,8 @@
     "test": "truffle test ./test/flightSurety.js",
     "dapp": "webpack serve --mode development --config webpack.config.dapp.js",
     "dapp:prod": "webpack --mode production  --config webpack.config.dapp.js",
-    "server": "node src/server/server.js"
+    "server": "node src/server/server.js",
+    "ganache": "ganache --wallet.mnemonic 'candy maple cake sugar pudding cream honey rich smooth crumble sweet treat' --accounts 100"
   },
   "author": "",
   "license": "ISC",
@@ -36,6 +37,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.1",
     "@truffle/hdwallet-provider": "^2.0.0",
-    "babel-polyfill": "^6.26.0"
+    "babel-polyfill": "^6.26.0",
+    "ganache": "^7.0.0-rc.0"
   }
 }

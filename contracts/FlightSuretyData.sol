@@ -24,6 +24,15 @@ contract FlightSuretyData {
     mapping(address => Airline) private airlines;
     uint256 numAirlines = 0;
 
+    struct InsurancePolicy {
+        address[] insurees;
+        uint256[] premium;
+        bool credited;
+    }
+    mapping(bytes32 => InsurancePolicy) private policies;
+
+    mapping(address => uint256) private payout;
+
     uint256 public constant AIRLINE_FUNDING = 10 ether;
 
     /********************************************************************************************/
@@ -77,7 +86,7 @@ contract FlightSuretyData {
     modifier requireIsCallerAuthorized() {
         require(
             authorizedContracts[msg.sender] == 1,
-            "Caller is not contract owner"
+            "Caller is not authorized"
         );
         _;
     }
@@ -136,10 +145,16 @@ contract FlightSuretyData {
      */
     function registerAirline(address appCaller, address airline)
         external
-        requireIsCallerAuthorized
         requireAirline(appCaller)
         returns (bool success, uint256 votes)
     {
+        // requireIsCallerAuthorized
+        emit DebugEvent(
+            msg.sender,
+            airlines[msg.sender],
+            "cons",
+            rememberFirst
+        );
         require(airlines[appCaller].funded, "Caller airline is not funded");
         require(!airlines[airline].valid, "Airline already registered.");
         emit DebugEvent(
@@ -179,18 +194,59 @@ contract FlightSuretyData {
      * @dev Buy insurance for a flight
      *
      */
-    function buy() external payable {}
+    function buy(address appCaller, bytes32 flightKey)
+        external
+        payable
+        requireIsCallerAuthorized
+    {
+        bool isDuplicate = false;
+        require(
+            policies[flightKey].credited == false,
+            "Policy already expired."
+        );
+        for (uint256 c = 0; c < policies[flightKey].insurees.length; c++) {
+            if (policies[flightKey].insurees[c] == appCaller) {
+                isDuplicate = true;
+                break;
+            }
+        }
+        require(
+            !isDuplicate,
+            "Insuree already purchased insurance for this flight."
+        );
+        policies[flightKey].insurees.push(appCaller);
+        policies[flightKey].premium.push(msg.value);
+    }
 
     /**
      *  @dev Credits payouts to insurees
      */
-    function creditInsurees() external pure {}
+    function creditInsurees(bytes32 flightKey)
+        external
+        requireIsCallerAuthorized
+    {
+        require(
+            policies[flightKey].credited == false,
+            "Policy already credited."
+        );
+        policies[flightKey].credited = true;
+        for (uint256 c = 0; c < policies[flightKey].insurees.length; c++) {
+            payout[policies[flightKey].insurees[c]] +=
+                (3 * policies[flightKey].premium[c]) /
+                2;
+        }
+    }
 
     /**
      *  @dev Transfers eligible payout funds to insuree
      *
      */
-    function pay() external pure {}
+    function pay(address appCaller) external requireIsCallerAuthorized {
+        require(payout[appCaller] > 0, "Nothing to withdraw.");
+        uint256 amt = payout[appCaller];
+        payout[appCaller] = 0;
+        payable(appCaller).transfer(amt);
+    }
 
     /**
      * @dev Initial funding for the insurance. Unless there are too many delayed flights
